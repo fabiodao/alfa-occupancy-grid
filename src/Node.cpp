@@ -9,7 +9,7 @@
 
 Node::Node(){
     next = NULL;
-    }
+}
 
 Node::Node(pcl::PointXYZI Point){
     this -> Point = Point;

@@ -17,166 +17,130 @@
 
 #define delta_ang 0.145
 
-#define num_sections 43
-#define num_bins_per_section 4
+#define num_sections 43            //Number of segments of the occupancy grid
+#define num_bins_per_section 4     //Number of bins in each segment
 
+
+//__________________ First Step Variables _____________________________________________
+pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud1(new pcl::PointCloud<pcl::PointXYZI>);
+pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud2(new pcl::PointCloud<pcl::PointXYZI>);
+pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+pcl::IterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI> icp;
+int i = 0;
+//______________________________________________________________________________________
+
+//__________________ Second Step Variables ______________________________________________
 int m_bin = 0;
 int n_section = 0;
 double pi = 3.14159;
 float angle = 0;
-float tp = 0;
-float fp = 0;
-float tn = 0;
-float fn = 0;
-float precision = 0;
-float fpr = 0;
-float err = 0;
-
-float sum_precision = 0;
-float average_precision = 0;
-float sum_fpr = 0;
-float average_fpr = 0;
-float sum_err = 0;
-float average_err = 0;
-
 LinkedList PolarGrid[num_bins_per_section][num_sections];
+//_______________________________________________________________________________________
 
-int i = 0;
-
-float frame_iterator = 1;
-
-
-pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud1(new pcl::PointCloud<pcl::PointXYZI>);
-pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud2(new pcl::PointCloud<pcl::PointXYZI>);
-pcl::PointCloud<pcl::PointXYZI>::Ptr output_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-
-
-pcl::IterativeClosestPoint<pcl::PointXYZI, pcl::PointXYZI> icp;
-
-// Passo 3 
-
-    float s_x_s=0;
-    float s_z=0;
-    float s_x=0;
-    float s_x_z=0;
-    float n_gp=0;
-
-    float b0=0;
-    float b1=0;
-    
-    vector <pcl::PointXYZI> zxprojection; 
-    vector <pcl::PointXYZI> zxprojection_temp;
+//----------------- Third Step Variables ________________________________________________
+float s_x_s=0;
+float s_z=0;
+float s_x=0;
+float s_x_z=0;
+float n_gp=0;
+float b0=0;
+float b1=0;
+vector <pcl::PointXYZI> zxprojection;
+vector <pcl::PointXYZI> zxprojection_temp;
+//________________________________________________________________________________________
     
 
-void OccupancyGrid (pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud, AlfaNode * node)
+void OccupancyGrid (pcl::PointCloud<pcl::PointXYZI>::Ptr input_cloud, AlfaNode * node)  //Function that maps the points to the Polar Grid
 {
 
     for (auto &point : *input_cloud){
-        // Calculate distance to point
 
-
-        float distance = sqrt(pow(point.x, 2) + pow(point.y, 2));
+        float distance = sqrt(pow(point.x, 2) + pow(point.y, 2)); // Calculate point distance
+        float angle = atan2(point.y, point.x); // Calculate point angle [-pi to pi]
         
-        float angle = atan2(point.y, point.x);
-        
-
+        //Convert angle from [-pi to pi] to [0 to 2pi]
         if (angle < 0) {
-        
             angle = angle + (2 * pi);        
         }
 
         if(angle >= 6.235)
             angle = 6.234;
     
-        n_section = (int)(angle / delta_ang);
 
+        n_section = (int)(angle / delta_ang);     //Calculate grid segment to map point
 
-    
-        //Number of the bin int the section
+        //Calculate the corresponding bin and insert it on the grid
         if (distance > 1 && distance < 5) {
             m_bin = (int)distance - 1;
-
-            PolarGrid[m_bin][n_section].insertNode(point);
-
+            PolarGrid[m_bin][n_section].insertNode(point);  //Add point to the corresponding bin
         }
-        //cout << "Label: " << point.Label << endl;
-    }
-    
-    cout << "deleting list" << endl;
 
+    }
+
+   // Calculate bin status and add it to the output point cloud
     for(int i = 0; i < num_bins_per_section; i++){
         for(int j = 0; j < num_sections; j++){
-            if(PolarGrid[i][j].get_bin_status()==1){ 
-            	zxprojection_temp = PolarGrid[i][j].outputBin(node);
-                    
+            if(PolarGrid[i][j].get_bin_status()==1){ //Get bin status: 1 -> ground   0-> non-ground
+            	zxprojection_temp = PolarGrid[i][j].outputBin(node);   //Save the ground points to use in third step and add them to output cloud
                 zxprojection.insert(zxprojection.end(), zxprojection_temp.begin(), zxprojection_temp.end() );
-            
             }
-            PolarGrid[i][j].deleteList();
+            PolarGrid[i][j].deleteList();   //Delete Bin
         }
     }
-    
-    
-	for(std::vector<pcl::PointXYZI>::size_type i = 0; i < zxprojection.size(); i++){
+}
 
-		zxprojection[i].intensity = 1;
-		s_x_s += zxprojection[i].intensity * pow(zxprojection[i].x,2);
-		s_z += zxprojection[i].intensity * zxprojection[i].z;
-		s_x += zxprojection[i].intensity * zxprojection[i].x;
-		s_x_z += zxprojection[i].intensity * zxprojection[i].x * zxprojection[i].z;  
-		n_gp +=1;  
-    	}    
+void LinearRegression(){
 
-	b0 = ((s_x_s * s_z) - (s_x * s_x_z))/((n_gp*s_x_s)-pow(s_x,2));
-	b1 = ((n_gp*s_x_z) - (s_x * s_z))/((n_gp*s_x_s)-pow(s_x,2));    
+    for(std::vector<pcl::PointXYZI>::size_type i = 0; i < zxprojection.size(); i++){
+        zxprojection[i].intensity = 1;
+        s_x_s += zxprojection[i].intensity * pow(zxprojection[i].x,2);
+        s_z += zxprojection[i].intensity * zxprojection[i].z;
+        s_x += zxprojection[i].intensity * zxprojection[i].x;
+        s_x_z += zxprojection[i].intensity * zxprojection[i].x * zxprojection[i].z;
+        n_gp +=1;
+    }
+
+    b0 = ((s_x_s * s_z) - (s_x * s_x_z))/((n_gp*s_x_s)-pow(s_x,2));
+    b1 = ((n_gp*s_x_z) - (s_x * s_z))/((n_gp*s_x_s)-pow(s_x,2));
 
 
-	cout << "b0=" << b0 << endl;
-	cout << "b1=" << b1 << endl;
-	cout << "###############################" << endl;
+    cout << "b0=" << b0 << endl;
+    cout << "b1=" << b1 << endl;
+    cout << "###############################" << endl;
 
-    s_x_s=0;	
+    s_x_s=0;
     s_z=0;
     s_x=0;
     s_x_z=0;
     n_gp=0;
     zxprojection.clear();
-
 }
-
 
 void handler(AlfaNode *node)
 {
     std::cout << "Point cloud received" << std::endl;
-    // Simple example code aplying a distance filter to the pointcloud
 
     for (auto &point1 : *node->input_cloud){
         // Calculate distance to point
-
         float distance1 = sqrt(pow(point1.x, 2) + pow(point1.y, 2));
-        
+
+        // Add point to point cloud if distance is between rmin = 1m and rmax = 5m
         if (distance1 > 1 && distance1 < 5) {
-            
             input_cloud1->points.push_back(point1);
         }
-        /*else if(point1.z < -1.8){
-            node->push_point_output_cloud(point1);
-        }*/
-
     }
 
     #ifdef ICP
-        cout << "entering ICP" << endl;
-        if(i!=0){
+        if(i!=0){ //if it is the first frame doesn't do the ICP
             icp.setMaxCorrespondenceDistance(0.05);  // Maximum distance between corresponding points
             icp.setTransformationEpsilon(1e-8);      // Minimum difference between consecutive transformations
             icp.setEuclideanFitnessEpsilon(1);       // Minimum difference between consecutive fitness scores
             icp.setMaximumIterations(5); 
-            icp.setInputSource(input_cloud2);
-            icp.setInputTarget(input_cloud1);
 
-            cout << "before alignment" << endl;
-            icp.align(*output_cloud);
+            icp.setInputSource(input_cloud2);   //Point cloud from frame before
+            icp.setInputTarget(input_cloud1);   //Point cloud from current frame
+
+            icp.align(*output_cloud);           //Align the two point clouds and save the result
 
             if (icp.hasConverged())
             {
@@ -194,7 +158,8 @@ void handler(AlfaNode *node)
         *output_cloud = *input_cloud1;
     #endif
     
-   OccupancyGrid(output_cloud, node);
+    OccupancyGrid(output_cloud, node);
+    LinearRegression();
      
     *input_cloud2 = *input_cloud1;
     input_cloud1->clear();

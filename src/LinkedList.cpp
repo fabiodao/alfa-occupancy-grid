@@ -23,8 +23,7 @@ LinkedList::LinkedList(){
     term2 = 0;
     term3 = 0;
     head=NULL;
- 
-    }
+}
 
 void LinkedList::insertNode(pcl::PointXYZI point){
     
@@ -38,16 +37,14 @@ void LinkedList::insertNode(pcl::PointXYZI point){
         // Traverse till end of list
         Node* temp = head;
         while (temp->next != NULL) {
-
             // Update temp
             temp = temp->next;
         }
-
         // Insert at the last.
         temp->next = newNode;
     }
 
-    // Height Average 
+    // Average Height
     num_points += 1;
     height_sum += point.z;
     average_height = height_sum / num_points;
@@ -56,22 +53,6 @@ void LinkedList::insertNode(pcl::PointXYZI point){
   
 }
 
-void LinkedList::printList()
-{
-    Node* temp = head;
-  
-    // Check for empty list.
-    if (head == NULL) {
-        cout << "List empty" << endl;
-        return;
-    }
-  
-    /*// Traverse the list.
-    while (temp != NULL) {
-        cout << "  ----X: " << temp->point.x << "  ----Y: " << temp->point.y << "  ----Z:" << temp->point.z << " " << endl;;
-        temp = temp->next;
-    }*/
-}
 
 int LinkedList::get_bin_status() {
     
@@ -89,24 +70,19 @@ int LinkedList::get_bin_status() {
         temp = temp->next;
     }
     
-    
+    //Calculate Height Deviation
     height_deviation = sqrt(deviation / num_points);
 
-    //cout << "height deviation: " << height_deviation << endl;
-         
+
+   /* _____________ Probability Calculation ___________________________________________________
     // Logs odds values of being ground, unknown or non-ground
-    
     term1 =  0.3 / (1 + exp(-6 * (average_height + 1.7)));
     term2 = (0.3 / (1 + exp(-6 * (height_deviation - 0.1))));
     term3 = (0.3 * (1-(1/(1 + exp(-4 * (num_points - 200))))));
     
     weighted_sum_partial_evidences = term1 + term2 + term3 ;
     
-    //cout << "prob: " << weighted_sum_partial_evidences << endl;
-    //cout << "Term1: " << term1 << endl;
-    //cout << "Term2: " << term2 << endl;    
-    //cout << "Term3: " << term3 << endl;
-    
+
     if (weighted_sum_partial_evidences > 0 && weighted_sum_partial_evidences <= 0.2)
         actual_p_value = -1.39;
     else if (weighted_sum_partial_evidences > 0.2 && weighted_sum_partial_evidences < 0.8)
@@ -123,21 +99,18 @@ int LinkedList::get_bin_status() {
     // Status of the bin based on the probability
     p_state = exp(all_p_values) / (1 + exp(all_p_values));
 
-
-    //cout << "state: " << p_state << endl;
-
-  /*  if (p_state > 0 && p_state <= 0.3)
+  /*if (p_state > 0 && p_state <= 0.3)
         status = 1;     // The bin is ground
     if (p_state > 0.3 && p_state < 0.7)
         status = 0;     // The bin is unknown
     if (p_state >= 0.7 && p_state < 1)
         status = -1;    // The bin is non-ground
-*/
+-------------------------------------------------------------------------------------------------    */
 
-    if (height_deviation < 0.07 && average_height < -1.6)
+    if (height_deviation < 0.05 && average_height < -1.5)
         status = 1;     // The bin is ground
     else
-        status = 0;     // The bin is unknown
+        status = 0;     // The bin is non-ground
 
 
 
@@ -157,6 +130,7 @@ void LinkedList::deleteList() {
         
     }
 
+    // Reset Bin
     head = nullptr;
     num_points = 0;
     num_points = 0;
@@ -194,6 +168,3 @@ vector <pcl::PointXYZI> LinkedList::outputBin(AlfaNode * node){
     return zy_system;
 }
 
-float LinkedList::get_average_height(){
-	return average_height;
-}

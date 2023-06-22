@@ -23,8 +23,7 @@ class LinkedList{
     float term3;
     
     float dif_average_and_actual_height;
-  
-    //float temp[300];
+
 
     // Variaveis para a probabilidade de ser ground, unknown or non-ground
 
@@ -40,12 +39,9 @@ class LinkedList{
 public:
     LinkedList();
     void insertNode(pcl::PointXYZI);
-    void printList();
     int get_bin_status();
     void deleteList();
     vector <pcl::PointXYZI> outputBin(AlfaNode * node);
-    float get_average_height();
-    
 };
 
 #endif /* LinkedList_hpp */

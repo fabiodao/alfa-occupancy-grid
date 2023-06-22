@@ -17,22 +17,14 @@
 #include <iostream>
 using namespace std;
 
-/*typedef struct {
-    float x;
-    float y;
-    float z;
-}Point;*/
 
 class Node{
-    
-    public:
 
-        pcl::PointXYZI Point;
-        Node* next;
-    
-        Node();
-        Node(pcl::PointXYZI Point);
-
+public:
+    pcl::PointXYZI Point;
+    Node* next;
+    Node();
+    Node(pcl::PointXYZI Point);
 };
 
 #endif /* Node_hpp */
